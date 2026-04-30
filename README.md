@@ -1,2 +1,2 @@
 # Tugas-Besar-PASD
-Aplikasi rekomedasi lowongan pekerjaan, Lokeri.id
+Aplikasi rekomedasi lowongan pekerjaan, Lokeria.id
