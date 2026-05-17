@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -5,12 +6,15 @@ import { getUser, getProfile } from "@/actions/auth";
 import { getBookmarks } from "@/actions/bookmarks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { RecommendationSection } from "@/components/recommendations/RecommendationSection";
+import { RecommendationSkeleton } from "@/components/recommendations/RecommendationSkeleton";
 import {
   Briefcase,
   Bookmark,
   User,
   Search,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -157,6 +161,22 @@ export default async function DashboardPage() {
             </Button>
           </CardContent>
         </Card>
+      </div>
+
+      {/* AI Recommendations */}
+      <div className="mt-10">
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold font-heading">
+            Recommended For You
+          </h2>
+        </div>
+        <p className="mb-6 text-sm text-muted-foreground">
+          AI-powered job matches based on your profile, skills, and interests.
+        </p>
+        <Suspense fallback={<RecommendationSkeleton />}>
+          <RecommendationSection />
+        </Suspense>
       </div>
     </div>
   );

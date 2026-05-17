@@ -18,13 +18,13 @@ export async function getJobs(filters: JobFilters = {}) {
       .from("jobs")
       .select("*, company:companies(*)", { count: "exact" })
       .eq("is_active", true)
-      .order("created_at", { ascending: false })
+      .order("job_posting_date", { ascending: false })
       .range(from, to);
 
     // Apply text search
     if (filters.query) {
       query = query.or(
-        `title.ilike.%${filters.query}%,description.ilike.%${filters.query}%`
+        `title.ilike.%${filters.query}%,description.ilike.%${filters.query}%,company_name.ilike.%${filters.query}%,role.ilike.%${filters.query}%`
       );
     }
 
@@ -36,7 +36,7 @@ export async function getJobs(filters: JobFilters = {}) {
       query = query.ilike("country", `%${filters.country}%`);
     }
     if (filters.work_type) {
-      query = query.eq("work_type", filters.work_type);
+      query = query.ilike("work_type", `%${filters.work_type}%`);
     }
     if (filters.min_salary) {
       query = query.gte("max_salary", filters.min_salary);
@@ -44,8 +44,14 @@ export async function getJobs(filters: JobFilters = {}) {
     if (filters.max_salary) {
       query = query.lte("min_salary", filters.max_salary);
     }
-    if (filters.experience_level) {
-      query = query.eq("experience_level", filters.experience_level);
+    if (filters.role) {
+      query = query.ilike("role", `%${filters.role}%`);
+    }
+    if (filters.min_experience_years !== undefined) {
+      query = query.lte("min_experience_years", filters.min_experience_years);
+    }
+    if (filters.max_experience_years !== undefined) {
+      query = query.gte("max_experience_years", filters.max_experience_years);
     }
 
     const { data, error, count } = await query;

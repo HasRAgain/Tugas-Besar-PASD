@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: JobDetailProps): Promise<Meta
   if (!job) return { title: "Job Not Found" };
   return {
     title: job.title,
-    description: `${job.title} at ${job.company?.name || "Unknown Company"} — ${job.location || "Remote"}`,
+    description: `${job.title} at ${job.company_name || job.company?.name || "Unknown Company"} — ${job.location || "Remote"}`,
   };
 }
 
@@ -62,10 +62,19 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
     return `Up to ${fmt(max!)}`;
   };
 
-  const workTypeColor: Record<string, string> = {
-    REMOTE: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-    HYBRID: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-    ONSITE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  const formatExperience = (min: number | null, max: number | null) => {
+    if (min == null && max == null) return null;
+    if (min != null && max != null) return `${min}–${max} years experience`;
+    if (min != null) return `${min}+ years experience`;
+    return `Up to ${max} years experience`;
+  };
+
+  const workTypeColor = (workType: string | null): string => {
+    const wt = (workType || "").toLowerCase();
+    if (wt.includes("remote")) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+    if (wt.includes("hybrid")) return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+    if (wt.includes("on-site") || wt.includes("onsite")) return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    return "bg-muted text-muted-foreground";
   };
 
   return (
@@ -90,14 +99,21 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                 {job.title}
               </h1>
               <p className="mt-1 text-lg text-muted-foreground">
-                {job.company?.name || "Unknown Company"}
+                {job.company_name || job.company?.name || "Unknown Company"}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Badge className={workTypeColor[job.work_type] || ""}>
-                  {job.work_type}
-                </Badge>
-                {job.experience_level && (
-                  <Badge variant="secondary">{job.experience_level}</Badge>
+                {job.work_type && (
+                  <Badge className={workTypeColor(job.work_type)}>
+                    {job.work_type}
+                  </Badge>
+                )}
+                {formatExperience(job.min_experience_years, job.max_experience_years) && (
+                  <Badge variant="secondary">
+                    {formatExperience(job.min_experience_years, job.max_experience_years)}
+                  </Badge>
+                )}
+                {job.role && (
+                  <Badge variant="outline">{job.role}</Badge>
                 )}
               </div>
             </div>
@@ -115,14 +131,38 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
             </div>
           </section>
 
-          {/* Requirements */}
-          {job.requirements && (
+          {/* Qualifications */}
+          {job.qualifications && (
             <section>
               <h2 className="mb-4 text-xl font-semibold font-heading">
-                Requirements
+                Qualifications
               </h2>
               <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">
-                {job.requirements}
+                {job.qualifications}
+              </div>
+            </section>
+          )}
+
+          {/* Responsibilities */}
+          {job.responsibilities && (
+            <section>
+              <h2 className="mb-4 text-xl font-semibold font-heading">
+                Responsibilities
+              </h2>
+              <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">
+                {job.responsibilities}
+              </div>
+            </section>
+          )}
+
+          {/* Skills */}
+          {job.skills && (
+            <section>
+              <h2 className="mb-4 text-xl font-semibold font-heading">
+                Skills Required
+              </h2>
+              <div className="prose prose-sm max-w-none text-muted-foreground leading-relaxed whitespace-pre-line">
+                {job.skills}
               </div>
             </section>
           )}
@@ -165,10 +205,10 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
                   <span>{formatSalary(job.min_salary, job.max_salary)}</span>
                 </div>
               )}
-              {job.experience_level && (
+              {formatExperience(job.min_experience_years, job.max_experience_years) && (
                 <div className="flex items-center gap-3 text-sm">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <span>{job.experience_level}</span>
+                  <span>{formatExperience(job.min_experience_years, job.max_experience_years)}</span>
                 </div>
               )}
 
@@ -189,22 +229,22 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
               </div>
 
               {/* Company Info */}
-              {job.company && (
+              {(job.company || job.company_name) && (
                 <>
                   <Separator />
                   <div>
                     <h4 className="mb-2 text-sm font-semibold">About the Company</h4>
                     <p className="text-sm font-medium">
-                      {job.company.name}
+                      {job.company_name || job.company?.name}
                     </p>
-                    {job.company.industry && (
+                    {job.company?.industry && (
                       <p className="text-xs text-muted-foreground">
                         {job.company.industry}
                       </p>
                     )}
-                    {job.company.description && (
+                    {(job.company_description || job.company?.description) && (
                       <p className="mt-2 text-xs text-muted-foreground leading-relaxed line-clamp-4">
-                        {job.company.description}
+                        {job.company_description || job.company?.description}
                       </p>
                     )}
                   </div>

@@ -22,7 +22,6 @@ interface JobsPageProps {
     q?: string;
     location?: string;
     work_type?: string;
-    experience?: string;
     min_salary?: string;
     max_salary?: string;
     page?: string;
@@ -44,8 +43,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
     const result = await getJobs({
       query: params.q,
       location: params.location,
-      work_type: params.work_type as "REMOTE" | "HYBRID" | "ONSITE" | undefined,
-      experience_level: params.experience,
+      work_type: params.work_type,
       min_salary: params.min_salary ? Number(params.min_salary) : undefined,
       max_salary: params.max_salary ? Number(params.max_salary) : undefined,
       page: params.page ? Number(params.page) : 1,
@@ -87,7 +85,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
         {/* Job Results */}
         <div>
           {/* Active filter tags */}
-          {(params.q || params.location || params.work_type || params.experience) && (
+          {(params.q || params.location || params.work_type) && (
             <div className="mb-4 flex flex-wrap items-center gap-2">
               <span className="text-sm text-muted-foreground">Active filters:</span>
               {params.q && (
@@ -103,11 +101,6 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
               {params.work_type && (
                 <Badge variant="secondary" className="text-xs">
                   {params.work_type}
-                </Badge>
-              )}
-              {params.experience && (
-                <Badge variant="secondary" className="text-xs">
-                  {params.experience}
                 </Badge>
               )}
             </div>

@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   location TEXT,
   country TEXT,
   resume_url TEXT,
+  major TEXT,
+  skill_field TEXT,
+  interests TEXT[],
+  skills TEXT[],
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -36,21 +40,38 @@ CREATE TABLE IF NOT EXISTS public.companies (
 -- =========================
 -- 3. JOBS TABLE
 -- =========================
-CREATE TYPE work_type_enum AS ENUM ('REMOTE', 'HYBRID', 'ONSITE');
-
 CREATE TABLE IF NOT EXISTS public.jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  company_id UUID REFERENCES public.companies(id) ON DELETE CASCADE,
+  -- Optional FK to companies table (can be NULL for flat CSV imports)
+  company_id UUID REFERENCES public.companies(id) ON DELETE SET NULL,
+  -- Core job info (from CSV)
   title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  requirements TEXT,
+  role TEXT,
+  description TEXT,
+  qualifications TEXT,
+  responsibilities TEXT,
+  skills TEXT,
   benefits TEXT,
-  min_salary INTEGER,
-  max_salary INTEGER,
-  experience_level TEXT,
+  -- Company info (flat, for direct CSV import)
+  company_name TEXT,
+  company_description TEXT,
+  -- Location
   location TEXT,
   country TEXT,
-  work_type work_type_enum DEFAULT 'ONSITE',
+  -- Work details
+  work_type TEXT,
+  preference TEXT,
+  job_portal TEXT,
+  -- Contact
+  contact_person TEXT,
+  contact_cleaned TEXT,
+  -- Experience & Salary (USD)
+  min_experience_years INTEGER,
+  max_experience_years INTEGER,
+  min_salary INTEGER,
+  max_salary INTEGER,
+  -- Meta
+  job_posting_date TIMESTAMPTZ,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -164,8 +185,23 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = ''
 AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name)
-  VALUES (NEW.id, NEW.raw_user_meta_data ->> 'full_name');
+  INSERT INTO public.profiles (id, full_name, major, skill_field, interests, skills)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data ->> 'full_name',
+    NEW.raw_user_meta_data ->> 'major',
+    NEW.raw_user_meta_data ->> 'skill_field',
+    CASE
+      WHEN NEW.raw_user_meta_data -> 'interests' IS NOT NULL
+      THEN ARRAY(SELECT jsonb_array_elements_text(NEW.raw_user_meta_data -> 'interests'))
+      ELSE NULL
+    END,
+    CASE
+      WHEN NEW.raw_user_meta_data -> 'skills' IS NOT NULL
+      THEN ARRAY(SELECT jsonb_array_elements_text(NEW.raw_user_meta_data -> 'skills'))
+      ELSE NULL
+    END
+  );
   RETURN NEW;
 END;
 $$;
@@ -177,98 +213,68 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- =========================
--- 11. SEED DATA: COMPANIES
+-- 11. SEED DATA: COMPANIES (optional — can be skipped if using flat job imports)
 -- =========================
-INSERT INTO public.companies (id, name, logo_url, website, description, industry, location) VALUES
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'TechNova', NULL, 'https://technova.example.com', 'A leading AI and cloud computing company building next-generation enterprise solutions.', 'Technology', 'San Francisco, CA'),
-  ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 'GreenLeaf Studios', NULL, 'https://greenleaf.example.com', 'Award-winning design and creative agency specializing in branding and digital experiences.', 'Design & Creative', 'New York, NY'),
-  ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'DataStream Analytics', NULL, 'https://datastream.example.com', 'Data analytics and business intelligence platform for mid-market companies.', 'Analytics', 'London, UK'),
-  ('d4e5f6a7-b8c9-0123-defa-234567890123', 'CloudPeak Systems', NULL, 'https://cloudpeak.example.com', 'Cloud infrastructure and DevOps solutions provider trusted by Fortune 500 companies.', 'Cloud Computing', 'Seattle, WA'),
-  ('e5f6a7b8-c9d0-1234-efab-345678901234', 'FinCore', NULL, 'https://fincore.example.com', 'Modern fintech platform offering payment processing and digital banking APIs.', 'Fintech', 'Singapore'),
-  ('f6a7b8c9-d0e1-2345-fabc-456789012345', 'HealthBridge', NULL, 'https://healthbridge.example.com', 'Digital health platform connecting patients with healthcare providers worldwide.', 'Healthcare', 'Berlin, Germany');
+-- No seed data inserted. Import your real company data as needed.
 
 -- =========================
 -- 12. SEED DATA: JOBS
 -- =========================
-INSERT INTO public.jobs (company_id, title, description, requirements, benefits, min_salary, max_salary, experience_level, location, country, work_type) VALUES
-  -- TechNova Jobs
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Senior Frontend Engineer',
-   'We are looking for a Senior Frontend Engineer to join our product team and build beautiful, performant user interfaces for our enterprise cloud platform.\n\nYou will work closely with designers and backend engineers to deliver pixel-perfect UI components and lead frontend architecture decisions.',
-   '• 5+ years of experience with React/Next.js\n• Strong TypeScript proficiency\n• Experience with state management (Zustand, Redux)\n• Understanding of web performance optimization\n• Familiarity with CI/CD pipelines',
-   '• Competitive salary + equity\n• Remote-first culture\n• $2,000 annual learning budget\n• Health, dental, and vision insurance\n• Unlimited PTO',
-   120000, 180000, 'Senior', 'San Francisco, CA', 'United States', 'REMOTE'),
-
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Backend Engineer (Go)',
-   'Join our backend team to design and build highly scalable microservices in Go that power our cloud platform.\n\nYou will own critical services handling millions of requests per day and contribute to our API design standards.',
-   '• 3+ years experience with Go\n• Experience with PostgreSQL and Redis\n• Knowledge of gRPC and REST API design\n• Understanding of distributed systems\n• Experience with Docker and Kubernetes',
-   '• Competitive salary + equity\n• Remote-first culture\n• $2,000 annual learning budget\n• Health insurance',
-   100000, 160000, 'Mid', 'San Francisco, CA', 'United States', 'HYBRID'),
-
-  ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'DevOps Engineer',
-   'We need a DevOps Engineer to manage and improve our cloud infrastructure across AWS and GCP.\n\nYou will build CI/CD pipelines, manage Kubernetes clusters, and ensure 99.99% uptime for our production systems.',
-   '• 4+ years in DevOps/SRE roles\n• Deep experience with AWS or GCP\n• Kubernetes administration\n• Terraform/Infrastructure as Code\n• Monitoring and alerting (Datadog, Grafana)',
-   '• Competitive salary\n• Stock options\n• Flexible working hours\n• Home office stipend',
-   110000, 170000, 'Senior', 'Remote', 'United States', 'REMOTE'),
-
-  -- GreenLeaf Studios Jobs
-  ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 'UI/UX Designer',
-   'GreenLeaf Studios is hiring a UI/UX Designer to create stunning digital experiences for our global clients.\n\nYou will lead the design process from user research through high-fidelity prototypes and work directly with developers to ensure pixel-perfect implementation.',
-   '• 3+ years of UI/UX design experience\n• Proficiency in Figma\n• Strong portfolio showcasing web and mobile designs\n• Understanding of accessibility standards\n• Experience with design systems',
-   '• Creative studio environment\n• Flexible schedule\n• Annual conference budget\n• Health insurance',
-   80000, 120000, 'Mid', 'New York, NY', 'United States', 'ONSITE'),
-
-  ('b2c3d4e5-f6a7-8901-bcde-f12345678901', 'Junior Web Developer',
-   'Start your career at GreenLeaf Studios! We are looking for a Junior Web Developer to join our development team and help build beautiful websites for top brands.\n\nYou will learn from senior developers and work on real projects from day one.',
-   '• Basic knowledge of HTML, CSS, JavaScript\n• Familiarity with React or Vue.js\n• Eagerness to learn and grow\n• Good communication skills\n• Portfolio or personal projects are a plus',
-   '• Mentorship program\n• Learning stipend\n• Team lunches\n• Fun creative office',
-   50000, 70000, 'Entry', 'New York, NY', 'United States', 'ONSITE'),
-
-  -- DataStream Analytics Jobs
-  ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'Data Engineer',
-   'DataStream Analytics is looking for a Data Engineer to build and maintain our data pipelines that process terabytes of data daily.\n\nYou will design ETL workflows, optimize data warehouses, and ensure data quality across the platform.',
-   '• 3+ years in data engineering\n• Experience with Apache Spark, Airflow\n• Strong SQL skills\n• Python proficiency\n• Knowledge of data warehousing (Snowflake, BigQuery)',
-   '• Competitive UK salary\n• 25 days holiday + bank holidays\n• Pension scheme\n• Remote work options',
-   65000, 95000, 'Mid', 'London', 'United Kingdom', 'HYBRID'),
-
-  ('c3d4e5f6-a7b8-9012-cdef-123456789012', 'Product Manager',
-   'Lead the product strategy for our analytics dashboard used by thousands of businesses.\n\nYou will define the product roadmap, prioritize features based on customer feedback and data insights, and work with cross-functional teams to deliver exceptional products.',
-   '• 4+ years in product management\n• Experience with B2B SaaS products\n• Strong analytical skills\n• Excellent stakeholder management\n• Technical background preferred',
-   '• Competitive salary\n• Stock options\n• Private healthcare\n• Flexible working',
-   80000, 110000, 'Senior', 'London', 'United Kingdom', 'REMOTE'),
-
-  -- CloudPeak Systems Jobs
-  ('d4e5f6a7-b8c9-0123-defa-234567890123', 'Cloud Solutions Architect',
-   'Design and implement enterprise-grade cloud architectures for our Fortune 500 clients.\n\nYou will serve as the technical lead for complex cloud migration projects and establish best practices for cloud-native development.',
-   '• 7+ years in cloud architecture\n• AWS Solutions Architect Professional certification\n• Experience with multi-cloud environments\n• Strong leadership skills\n• Client-facing experience',
-   '• Top-tier compensation package\n• Remote-first\n• Annual tech conference attendance\n• 401(k) matching',
-   150000, 220000, 'Lead', 'Seattle, WA', 'United States', 'REMOTE'),
-
-  -- FinCore Jobs
-  ('e5f6a7b8-c9d0-1234-efab-345678901234', 'Full Stack Developer',
-   'Build the future of digital payments at FinCore. We are looking for a Full Stack Developer to work on our payment processing platform used by thousands of merchants across Asia.\n\nTech stack: React, Node.js, PostgreSQL, Redis, Docker.',
-   '• 3+ years full stack experience\n• React and Node.js proficiency\n• PostgreSQL experience\n• Understanding of payment systems is a plus\n• Good problem-solving skills',
-   '• Competitive salary in SGD\n• Annual bonus\n• Flexible work arrangements\n• Medical and dental coverage',
-   70000, 100000, 'Mid', 'Singapore', 'Singapore', 'HYBRID'),
-
-  ('e5f6a7b8-c9d0-1234-efab-345678901234', 'Security Engineer',
-   'Protect our fintech platform and our customers data. As a Security Engineer at FinCore, you will lead security assessments, implement security controls, and respond to security incidents.\n\nThis is a critical role ensuring PCI-DSS compliance and protecting millions of financial transactions.',
-   '• 4+ years in cybersecurity\n• Experience with PCI-DSS compliance\n• Knowledge of OWASP Top 10\n• Penetration testing experience\n• Security certifications (CISSP, CEH) preferred',
-   '• Competitive salary\n• Annual bonus\n• Training and certification budget\n• Health insurance',
-   90000, 140000, 'Senior', 'Singapore', 'Singapore', 'ONSITE'),
-
-  -- HealthBridge Jobs
-  ('f6a7b8c9-d0e1-2345-fabc-456789012345', 'React Native Developer',
-   'Build cross-platform mobile apps that help patients connect with healthcare providers.\n\nYou will work on our patient-facing mobile application used by millions of users across Europe, delivering telemedicine and health tracking features.',
-   '• 3+ years React Native experience\n• Experience with TypeScript\n• Knowledge of mobile CI/CD\n• Understanding of healthcare regulations (HIPAA/GDPR) is a plus\n• Published apps on App Store/Play Store',
-   '• Competitive German salary\n• 30 days vacation\n• Public transit pass\n• Health and wellness benefits',
-   60000, 90000, 'Mid', 'Berlin', 'Germany', 'HYBRID'),
-
-  ('f6a7b8c9-d0e1-2345-fabc-456789012345', 'Machine Learning Engineer',
-   'Apply machine learning to improve patient outcomes. You will build predictive models for early disease detection and treatment recommendation systems.\n\nWork at the intersection of AI and healthcare to make a real impact on peoples lives.',
-   '• MS/PhD in Computer Science or related field\n• 3+ years ML experience\n• Proficiency in Python, TensorFlow/PyTorch\n• Experience with medical data is a plus\n• Strong research background',
-   '• Competitive salary\n• Research publication support\n• Conference attendance\n• Relocation assistance',
-   80000, 130000, 'Senior', 'Berlin', 'Germany', 'REMOTE');
+-- No seed data inserted. Import your real jobs data from CSV.
+-- Use Supabase Dashboard → Table Editor → Import CSV,
+-- or the SQL COPY command with your CSV file.
 
 -- ============================================================
--- DONE! Your database is now set up with schema, RLS, and seed data.
+-- DONE! Your database is now set up with schema and RLS.
+-- Next step: import your jobs CSV via Supabase Dashboard.
 -- ============================================================
+
+-- =========================
+-- APPENDIX: ALTER TABLE statements
+-- Run these if the jobs table already exists in Supabase
+-- to migrate it to the new schema.
+-- =========================
+/*
+ALTER TABLE public.jobs
+  DROP COLUMN IF EXISTS requirements,
+  DROP COLUMN IF EXISTS experience_level;
+
+-- Change work_type from enum to text:
+-- 1. Drop the default (it references the enum type)
+ALTER TABLE public.jobs ALTER COLUMN work_type DROP DEFAULT;
+-- 2. Cast the column to TEXT
+ALTER TABLE public.jobs ALTER COLUMN work_type TYPE TEXT;
+-- 3. Now the enum has no dependents and can be dropped
+DROP TYPE IF EXISTS work_type_enum;
+
+ALTER TABLE public.jobs
+  ADD COLUMN IF NOT EXISTS role TEXT,
+  ADD COLUMN IF NOT EXISTS qualifications TEXT,
+  ADD COLUMN IF NOT EXISTS responsibilities TEXT,
+  ADD COLUMN IF NOT EXISTS skills TEXT,
+  ADD COLUMN IF NOT EXISTS company_name TEXT,
+  ADD COLUMN IF NOT EXISTS company_description TEXT,
+  ADD COLUMN IF NOT EXISTS preference TEXT,
+  ADD COLUMN IF NOT EXISTS job_portal TEXT,
+  ADD COLUMN IF NOT EXISTS contact_person TEXT,
+  ADD COLUMN IF NOT EXISTS contact_cleaned TEXT,
+  ADD COLUMN IF NOT EXISTS min_experience_years INTEGER,
+  ADD COLUMN IF NOT EXISTS max_experience_years INTEGER,
+  ADD COLUMN IF NOT EXISTS job_posting_date TIMESTAMPTZ;
+
+-- Make description nullable since CSV might have blanks
+ALTER TABLE public.jobs ALTER COLUMN description DROP NOT NULL;
+
+-- Also allow company_id to SET NULL instead of CASCADE
+-- (re-create the FK constraint)
+ALTER TABLE public.jobs DROP CONSTRAINT IF EXISTS jobs_company_id_fkey;
+ALTER TABLE public.jobs
+  ADD CONSTRAINT jobs_company_id_fkey
+  FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE SET NULL;
+
+-- Create indexes for the new columns (run AFTER ADD COLUMN above)
+CREATE INDEX IF NOT EXISTS idx_jobs_country ON public.jobs(country);
+CREATE INDEX IF NOT EXISTS idx_jobs_role ON public.jobs(role);
+CREATE INDEX IF NOT EXISTS idx_jobs_company_name ON public.jobs(company_name);
+CREATE INDEX IF NOT EXISTS idx_jobs_job_posting_date ON public.jobs(job_posting_date DESC);
+*/

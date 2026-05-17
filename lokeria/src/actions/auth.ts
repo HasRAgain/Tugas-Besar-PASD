@@ -25,15 +25,27 @@ export async function signUp(formData: FormData) {
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
   const fullName = formData.get("full_name") as string;
+  const major = formData.get("major") as string;
+  const skillField = formData.get("skill_field") as string;
+
+  // Parse JSON arrays sent from the multi-step form
+  const interestsRaw = formData.get("interests") as string;
+  const skillsRaw = formData.get("skills") as string;
+  const interests = interestsRaw ? JSON.parse(interestsRaw) : [];
+  const skills = skillsRaw ? JSON.parse(skillsRaw) : [];
 
   const supabase = await createClient();
 
-  const { data, error } = await supabase.auth.signUp({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
     options: {
       data: {
         full_name: fullName,
+        major,
+        skill_field: skillField,
+        interests,
+        skills,
       },
     },
   });
@@ -43,13 +55,7 @@ export async function signUp(formData: FormData) {
     return { error: error.message };
   }
 
-  // Create profile entry
-  if (data.user) {
-    await supabase.from("profiles").insert({
-      id: data.user.id,
-      full_name: fullName,
-    });
-  }
+  // Profile is created automatically via the handle_new_user database trigger
 
   redirect("/dashboard");
 }

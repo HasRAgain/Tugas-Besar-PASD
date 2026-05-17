@@ -56,10 +56,12 @@ export function JobCard({
     return `Up to ${fmt(max!)}`;
   };
 
-  const workTypeColor: Record<string, string> = {
-    REMOTE: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
-    HYBRID: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
-    ONSITE: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  const workTypeColor = (workType: string | null): string => {
+    const wt = (workType || "").toLowerCase();
+    if (wt.includes("remote")) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
+    if (wt.includes("hybrid")) return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
+    if (wt.includes("on-site") || wt.includes("onsite")) return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    return "bg-muted text-muted-foreground";
   };
 
   return (
@@ -78,7 +80,7 @@ export function JobCard({
                 {job.title}
               </Link>
               <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">
-                {job.company?.name || "Unknown Company"}
+                {job.company_name || job.company?.name || "Unknown Company"}
               </p>
             </div>
           </div>
@@ -107,7 +109,7 @@ export function JobCard({
       <CardFooter className="flex flex-wrap items-center gap-2 pt-0">
         <Badge
           variant="secondary"
-          className={`text-xs ${workTypeColor[job.work_type] || ""}`}
+          className={`text-xs ${workTypeColor(job.work_type)}`}
         >
           {job.work_type}
         </Badge>
@@ -126,10 +128,14 @@ export function JobCard({
           </span>
         )}
 
-        {job.experience_level && (
+        {(job.min_experience_years != null || job.max_experience_years != null) && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
-            {job.experience_level}
+            {job.min_experience_years != null && job.max_experience_years != null
+              ? `${job.min_experience_years}–${job.max_experience_years} yrs`
+              : job.min_experience_years != null
+              ? `${job.min_experience_years}+ yrs`
+              : `Up to ${job.max_experience_years} yrs`}
           </span>
         )}
       </CardFooter>
