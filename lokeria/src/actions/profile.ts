@@ -18,21 +18,27 @@ export async function updateProfile(formData: FormData) {
     return { error: "You must be logged in." };
   }
 
-  // Fetch existing profile FIRST (before update) to get skills, interests etc.
-  const { data: existingProfile } = await supabase
-    .from("profiles")
-    .select("skills, interests, skill_field, major")
-    .eq("id", user.id)
-    .single();
+  // Parse array fields sent as JSON from the form
+  const interestsRaw = formData.get("interests") as string;
+  const skillsRaw = formData.get("skills") as string;
+  const interests: string[] = interestsRaw ? JSON.parse(interestsRaw) : [];
+  const skills: string[] = skillsRaw ? JSON.parse(skillsRaw) : [];
 
-  console.log("[Profile] Existing profile data:", JSON.stringify(existingProfile));
+  const headline = formData.get("headline") as string;
+  const bio = formData.get("bio") as string;
+  const major = formData.get("major") as string;
+  const skillField = formData.get("skill_field") as string;
 
   const updates = {
     full_name: formData.get("full_name") as string,
-    headline: formData.get("headline") as string,
-    bio: formData.get("bio") as string,
+    headline,
+    bio,
     location: formData.get("location") as string,
     country: formData.get("country") as string,
+    major,
+    skill_field: skillField,
+    interests,
+    skills,
     updated_at: new Date().toISOString(),
   };
 
@@ -46,16 +52,16 @@ export async function updateProfile(formData: FormData) {
   }
 
   // === EMBEDDING GENERATION (event-driven, only on profile save) ===
-  // Combine form data with existing profile data for semantic text
+  // Build from the form data we just saved — no extra DB fetch needed
   let embeddingStatus = "skipped";
   try {
     const profileForEmbedding = {
-      headline: updates.headline,
-      bio: updates.bio,
-      skills: existingProfile?.skills || null,
-      interests: existingProfile?.interests || null,
-      skill_field: existingProfile?.skill_field || null,
-      major: existingProfile?.major || null,
+      headline,
+      bio,
+      skills,
+      interests,
+      skill_field: skillField,
+      major,
     };
 
     console.log("[Embedding] Combined profile data:", JSON.stringify(profileForEmbedding));
