@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -28,11 +29,11 @@ export function RecommendationCard({ job }: RecommendationCardProps) {
     matchPercent >= 85
       ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
       : matchPercent >= 70
-      ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
-      : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+        ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"
+        : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
 
   return (
-    <Card className="group relative transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5">
+    <Card className="group relative overflow-visible transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5">
       {/* Match Score Badge */}
       <div className="absolute -top-2 -right-2 z-10">
         <Badge className={`gap-1 shadow-sm ${matchColor}`}>
@@ -47,9 +48,12 @@ export function RecommendationCard({ job }: RecommendationCardProps) {
             <Building2 className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <p className="text-base font-semibold leading-tight line-clamp-1">
+            <Link
+              href={`/jobs?q=${encodeURIComponent(job.job_title)}`}
+              className="text-base font-semibold leading-tight line-clamp-1 hover:text-primary transition-colors"
+            >
               {job.job_title}
-            </p>
+            </Link>
             <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">
               {job.company || "Unknown Company"}
             </p>
