@@ -14,6 +14,17 @@ export async function getJobs(filters: JobFilters = {}) {
     const from = (page - 1) * perPage;
     const to = from + perPage - 1;
 
+    // 1. Search Query Validation (Requirement 1)
+    if (filters.query) {
+      const q = filters.query.trim();
+      const isOneChar = q.length <= 1;
+      const isNumbersOrSymbolsOnly = /^[^a-zA-Z]+$/.test(q);
+
+      if (!q || isOneChar || isNumbersOrSymbolsOnly) {
+        return EMPTY_RESULT;
+      }
+    }
+
     let query = supabase
       .from("jobs")
       .select("*, company:companies(*)", { count: "exact" })
@@ -24,7 +35,7 @@ export async function getJobs(filters: JobFilters = {}) {
     // Apply text search
     if (filters.query) {
       query = query.or(
-        `title.ilike.%${filters.query}%,description.ilike.%${filters.query}%,company_name.ilike.%${filters.query}%,role.ilike.%${filters.query}%`
+        `title.ilike.%${filters.query}%,job_description.ilike.%${filters.query}%,company.ilike.%${filters.query}%,role.ilike.%${filters.query}%`
       );
     }
 
@@ -57,12 +68,64 @@ export async function getJobs(filters: JobFilters = {}) {
     const { data, error, count } = await query;
 
     if (error) {
-      // Supabase not configured or table doesn't exist yet
       return EMPTY_RESULT;
     }
 
+    // 2. Similarity Search Fallback (Requirement 3)
+    if (filters.query && (!data || data.length === 0)) {
+      try {
+        const { generateEmbedding } = await import("@/lib/embeddings");
+        const queryEmbedding = await generateEmbedding(filters.query);
+        const { data: recommendations, error: recError } = await supabase.rpc(
+          "match_jobs_for_user",
+          {
+            query_embedding: queryEmbedding,
+            match_count: perPage,
+          }
+        );
+
+        if (!recError && recommendations && recommendations.length > 0) {
+          const similarJobs = recommendations.map((rec: any) => ({
+            id: String(rec.id),
+            title: rec.job_title,
+            role: rec.role,
+            company_name: rec.company,
+            location: rec.location,
+            country: rec.country,
+            min_salary: rec.min_salary_usd,
+            max_salary: rec.max_salary_usd,
+            description: rec.semantic_text,
+            is_active: true,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          }));
+
+          return {
+            jobs: similarJobs,
+            totalCount: similarJobs.length,
+            totalPages: 1,
+            currentPage: page,
+          };
+        }
+      } catch (err) {
+        console.error("Similarity search failed:", err);
+      }
+    }
+
+    const mappedData = data?.map((job: any) => {
+      let cName = job.company_name;
+      if (!cName) {
+        cName = typeof job.company === 'string' ? job.company : job.company?.name;
+      }
+      return {
+        ...job,
+        description: job.description || job.job_description,
+        company_name: cName || "Unknown Company",
+      };
+    });
+
     return {
-      jobs: data || [],
+      jobs: mappedData || [],
       totalCount: count || 0,
       totalPages: Math.ceil((count || 0) / perPage),
       currentPage: page,
@@ -84,7 +147,17 @@ export async function getJobById(jobId: string) {
       .single();
 
     if (error) return null;
-    return data;
+    
+    let cName = data.company_name;
+    if (!cName) {
+      cName = typeof data.company === 'string' ? data.company : data.company?.name;
+    }
+
+    return {
+      ...data,
+      description: data.description || data.job_description,
+      company_name: cName || "Unknown Company",
+    };
   } catch {
     return null;
   }
@@ -101,7 +174,17 @@ export async function getFeaturedJobs() {
       .order("created_at", { ascending: false })
       .limit(6);
 
-    return data || [];
+    return (data || []).map((job: any) => {
+      let cName = job.company_name;
+      if (!cName) {
+        cName = typeof job.company === 'string' ? job.company : job.company?.name;
+      }
+      return {
+        ...job,
+        description: job.description || job.job_description,
+        company_name: cName || "Unknown Company",
+      };
+    });
   } catch {
     return [];
   }
