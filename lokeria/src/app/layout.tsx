@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Toaster } from "@/components/ui/sonner";
 import { getUser, getProfile } from "@/actions/auth";
+import { SessionWatcher } from "@/components/SessionWatcher";
 
 const geistHeading = Geist({ subsets: ["latin"], variable: "--font-heading" });
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -59,6 +60,7 @@ export default async function RootLayout({
         <main className="flex-1">{children}</main>
         <Footer />
         <Toaster richColors position="top-right" />
+        <SessionWatcher />
       </body>
     </html>
   );
