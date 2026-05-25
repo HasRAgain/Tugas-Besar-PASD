@@ -13,17 +13,16 @@ import {
   Shield,
   Zap,
 } from "lucide-react";
+import { InteractiveBackground } from "@/components/InteractiveBackground";
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col relative">
+      <InteractiveBackground />
       {/* ========== HERO SECTION ========== */}
-      <section className="relative overflow-hidden border-b bg-gradient-to-b from-primary/5 via-background to-background">
-        {/* Decorative blobs */}
-        <div className="pointer-events-none absolute -top-40 left-1/2 h-[500px] w-[800px] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-20 right-0 h-[300px] w-[400px] rounded-full bg-primary/5 blur-3xl" />
+      <section className="relative overflow-hidden border-b bg-transparent">
 
-        <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8 lg:py-40">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-24 sm:px-6 sm:py-32 lg:px-8 lg:py-40">
           <div className="mx-auto max-w-3xl text-center">
             <Badge
               variant="secondary"
@@ -72,7 +71,7 @@ export default function HomePage() {
       </section>
 
       {/* ========== FEATURES SECTION ========== */}
-      <section className="py-20 sm:py-28">
+      <section className="relative z-10 py-20 sm:py-28 bg-transparent">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight font-heading sm:text-4xl">
@@ -127,7 +126,7 @@ export default function HomePage() {
       </section>
 
       {/* ========== STATS SECTION ========== */}
-      <section className="border-y bg-muted/30 py-16">
+      <section className="relative z-10 border-y bg-muted/10 backdrop-blur-sm py-16">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 text-center md:grid-cols-4">
             {[
@@ -148,7 +147,7 @@ export default function HomePage() {
       </section>
 
       {/* ========== CTA SECTION ========== */}
-      <section className="py-20 sm:py-28">
+      <section className="relative z-10 py-20 sm:py-28 bg-transparent">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="relative overflow-hidden rounded-2xl bg-primary px-8 py-16 text-center text-primary-foreground sm:px-16">
             <div className="pointer-events-none absolute -top-16 left-0 h-[300px] w-[300px] rounded-full bg-white/10 blur-3xl" />

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getUser, getProfile } from "@/actions/auth";
 import { getBookmarks } from "@/actions/bookmarks";
+import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RecommendationSection } from "@/components/recommendations/RecommendationSection";
@@ -37,6 +38,18 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  let availableJobsCount = 0;
+  try {
+    const supabase = await createClient();
+    const { count } = await supabase
+      .from("jobs")
+      .select("*", { count: "exact", head: true })
+      .eq("is_active", true);
+    availableJobsCount = count || 0;
+  } catch {
+    // Ignore
+  }
+
   // Profile completeness
   const fields = [
     profile?.full_name,
@@ -58,6 +71,22 @@ export default async function DashboardPage() {
         <p className="mt-2 text-muted-foreground">
           Here&apos;s what&apos;s happening with your job search.
         </p>
+      </div>
+
+      {/* AI Recommendations - Moved to Top */}
+      <div className="mb-10">
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-primary" />
+          <h2 className="text-xl font-semibold font-heading">
+            Recommended For You
+          </h2>
+        </div>
+        <p className="mb-6 text-sm text-muted-foreground">
+          AI-powered job matches based on your profile, skills, and interests.
+        </p>
+        <Suspense fallback={<RecommendationSkeleton />}>
+          <RecommendationSection />
+        </Suspense>
       </div>
 
       {/* Stats Grid */}
@@ -90,7 +119,7 @@ export default async function DashboardPage() {
               <Briefcase className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <p className="text-2xl font-bold">∞</p>
+              <p className="text-2xl font-bold">{availableJobsCount}</p>
               <p className="text-sm text-muted-foreground">Jobs Available</p>
             </div>
           </CardContent>
@@ -161,22 +190,6 @@ export default async function DashboardPage() {
             </Button>
           </CardContent>
         </Card>
-      </div>
-
-      {/* AI Recommendations */}
-      <div className="mt-10">
-        <div className="mb-4 flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold font-heading">
-            Recommended For You
-          </h2>
-        </div>
-        <p className="mb-6 text-sm text-muted-foreground">
-          AI-powered job matches based on your profile, skills, and interests.
-        </p>
-        <Suspense fallback={<RecommendationSkeleton />}>
-          <RecommendationSection />
-        </Suspense>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getRecommendations } from "@/actions/recommendations";
 import { RecommendationCard } from "./RecommendationCard";
+import { RecommendationCarousel } from "./RecommendationCarousel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -88,10 +89,14 @@ export async function RecommendationSection() {
 
   // State: recommendations found!
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <RecommendationCarousel>
       {result.jobs.map((job) => (
-        <RecommendationCard key={job.id} job={job} />
+        <div key={job.id} className="min-w-[85vw] sm:min-w-[350px] max-w-[350px] snap-center sm:snap-start shrink-0 flex flex-col">
+          <div className="flex-1 h-full">
+            <RecommendationCard job={job} />
+          </div>
+        </div>
       ))}
-    </div>
+    </RecommendationCarousel>
   );
 }

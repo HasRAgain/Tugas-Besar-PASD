@@ -74,6 +74,7 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
     if (wt.includes("remote")) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
     if (wt.includes("hybrid")) return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
     if (wt.includes("on-site") || wt.includes("onsite")) return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    if (wt.includes("intern")) return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
     return "bg-muted text-muted-foreground";
   };
 
@@ -215,12 +216,6 @@ export default async function JobDetailPage({ params }: JobDetailProps) {
               <Separator />
 
               <div className="space-y-2">
-                <Button className="w-full gap-2" asChild>
-                  <a href={job.company?.website || "#"} target="_blank" rel="noopener noreferrer">
-                    Apply Now
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
                 <BookmarkButton
                   jobId={job.id}
                   isBookmarked={isBookmarked}

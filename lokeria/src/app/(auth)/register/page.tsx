@@ -17,6 +17,7 @@ import { Briefcase, ArrowRight, ArrowLeft, X, Check, User, GraduationCap } from 
 import { signUp } from "@/actions/auth";
 import { useState, useRef, KeyboardEvent } from "react";
 import { toast } from "sonner";
+import { InteractiveBackground } from "@/components/InteractiveBackground";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
@@ -125,8 +126,9 @@ export default function RegisterPage() {
   ];
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center px-4 py-12">
-      <Card className="w-full max-w-lg overflow-hidden">
+    <div className="flex min-h-[calc(100vh-4rem)] relative items-center justify-center px-4 py-12 overflow-hidden">
+      <InteractiveBackground rows={12} />
+      <Card className="w-full max-w-lg overflow-hidden relative z-10 backdrop-blur-sm bg-background/80">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Briefcase className="h-6 w-6 text-primary-foreground" />

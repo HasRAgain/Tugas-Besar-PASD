@@ -33,14 +33,15 @@ export function RecommendationCard({ job }: RecommendationCardProps) {
         : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
 
   return (
-    <Card className="group relative overflow-visible transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5">
-      {/* Match Score Badge */}
-      <div className="absolute -top-2 -right-2 z-10">
-        <Badge className={`gap-1 shadow-sm ${matchColor}`}>
-          <Sparkles className="h-3 w-3" />
-          {matchPercent}% Match
-        </Badge>
-      </div>
+    <Link href={`/jobs/${job.id}`} className="block h-full">
+      <Card className="group relative overflow-visible h-full transition-all duration-200 hover:shadow-lg hover:border-primary/20 hover:-translate-y-0.5">
+        {/* Match Score Badge */}
+        <div className="absolute top-3 right-3 z-10">
+          <Badge className={`gap-1 shadow-sm ${matchColor}`}>
+            <Sparkles className="h-3 w-3" />
+            {matchPercent}% Match
+          </Badge>
+        </div>
 
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3 min-w-0">
@@ -48,12 +49,9 @@ export function RecommendationCard({ job }: RecommendationCardProps) {
             <Building2 className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <Link
-              href={`/jobs?q=${encodeURIComponent(job.job_title)}`}
-              className="text-base font-semibold leading-tight line-clamp-1 hover:text-primary transition-colors"
-            >
+            <h3 className="text-base font-semibold leading-tight line-clamp-1 group-hover:text-primary transition-colors">
               {job.job_title}
-            </Link>
+            </h3>
             <p className="mt-0.5 text-sm text-muted-foreground line-clamp-1">
               {job.company || "Unknown Company"}
             </p>
@@ -84,6 +82,7 @@ export function RecommendationCard({ job }: RecommendationCardProps) {
           </span>
         )}
       </CardFooter>
-    </Card>
+      </Card>
+    </Link>
   );
 }

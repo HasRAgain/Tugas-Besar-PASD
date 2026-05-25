@@ -61,6 +61,7 @@ export function JobCard({
     if (wt.includes("remote")) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400";
     if (wt.includes("hybrid")) return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400";
     if (wt.includes("on-site") || wt.includes("onsite")) return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
+    if (wt.includes("intern")) return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
     return "bg-muted text-muted-foreground";
   };
 
@@ -107,12 +108,14 @@ export function JobCard({
       </CardContent>
 
       <CardFooter className="flex flex-wrap items-center gap-2 pt-0">
-        <Badge
-          variant="secondary"
-          className={`text-xs ${workTypeColor(job.work_type)}`}
-        >
-          {job.work_type}
-        </Badge>
+        {job.work_type && (
+          <Badge
+            variant="secondary"
+            className={`text-xs ${workTypeColor(job.work_type)}`}
+          >
+            {job.work_type}
+          </Badge>
+        )}
 
         {job.location && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">

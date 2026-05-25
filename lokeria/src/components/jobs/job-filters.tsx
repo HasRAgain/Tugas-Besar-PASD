@@ -113,6 +113,7 @@ export function JobFilters() {
             <SelectItem value="REMOTE">Remote</SelectItem>
             <SelectItem value="HYBRID">Hybrid</SelectItem>
             <SelectItem value="ONSITE">On-site</SelectItem>
+            <SelectItem value="INTERN">Intern</SelectItem>
           </SelectContent>
         </Select>
       </div>

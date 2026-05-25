@@ -6,6 +6,132 @@ import type { JobFilters } from "@/types/database.types";
 const ITEMS_PER_PAGE = 12;
 const EMPTY_RESULT = { jobs: [], totalCount: 0, totalPages: 1, currentPage: 1 };
 
+const sanitizeLocation = (loc: string | null, country: string | null) => {
+  if (!loc) return country || null;
+  const lowerLoc = loc.toLowerCase().trim();
+  if (["hybrid", "remote", "on-site", "onsite"].includes(lowerLoc)) {
+    return country || null;
+  }
+  return loc;
+};
+
+const extractWorkType = (loc: string | null, workType: string | null, title?: string | null, desc?: string | null, role?: string | null) => {
+  const textToSearch = `${title || ''} ${desc || ''} ${role || ''}`.toLowerCase();
+  if (textToSearch.includes("intern") || textToSearch.includes("internship")) {
+    return "Intern";
+  }
+
+  if (workType) return workType;
+  if (!loc) return null;
+  const lowerLoc = loc.toLowerCase().trim();
+  if (["hybrid", "remote", "on-site", "onsite"].includes(lowerLoc)) {
+    if (lowerLoc === "on-site" || lowerLoc === "onsite") return "On-site";
+    return loc.charAt(0).toUpperCase() + loc.slice(1).toLowerCase();
+  }
+  return null;
+};
+
+const formatText = (text: string | null) => {
+  if (!text) return text;
+  // Replace literal '\n' or '\\n' with actual newline
+  return text.replace(/\\+n/g, '\n');
+};
+
+const parseSemanticText = (text: string | null) => {
+  if (!text) return { description: null, qualifications: null, responsibilities: null, skills: null, benefits: null };
+  
+  if (!text.includes("Job Title:") && !text.includes("Job Description:") && !text.includes("Skills:")) {
+    return { description: formatText(text), qualifications: null, responsibilities: null, skills: null, benefits: null };
+  }
+
+  const markers = [
+    { key: "job_title", label: "Job Title:" },
+    { key: "role", label: "Role:" },
+    { key: "description", label: "Job Description:" },
+    { key: "qualifications", label: "Qualifications:" },
+    { key: "responsibilities", label: "Responsibilities:" },
+    { key: "skills", label: "Skills:" },
+    { key: "benefits", label: "Benefits:" }
+  ];
+
+  const result: Record<string, string | null> = {
+    job_title: null,
+    role: null,
+    description: null,
+    qualifications: null,
+    responsibilities: null,
+    skills: null,
+    benefits: null
+  };
+
+  const positions: { key: string, index: number, length: number }[] = [];
+  markers.forEach(marker => {
+    const idx = text.indexOf(marker.label);
+    if (idx !== -1) {
+      positions.push({ key: marker.key, index: idx, length: marker.label.length });
+    }
+  });
+
+  positions.sort((a, b) => a.index - b.index);
+
+  for (let i = 0; i < positions.length; i++) {
+    const current = positions[i];
+    const next = positions[i + 1];
+    
+    const start = current.index + current.length;
+    const end = next ? next.index : text.length;
+    
+    const content = text.slice(start, end).trim();
+    result[current.key] = content;
+  }
+
+  if (!result.description) {
+    if (result.role && result.role.length > 5) {
+      result.description = result.role;
+    } else if (result.job_title && result.job_title.length > 5) {
+      result.description = result.job_title;
+    } else {
+      result.description = text.substring(0, 200) + "...";
+    }
+  }
+
+  return {
+    description: formatText(result.description),
+    qualifications: formatText(result.qualifications),
+    responsibilities: formatText(result.responsibilities),
+    skills: formatText(result.skills),
+    benefits: formatText(result.benefits)
+  };
+};
+
+const DUMMY_COMPANIES = [
+  "TechNova Solutions", "Apex Innovations", "Quantum Dynamics", "Nebula Systems", 
+  "Vertex Technologies", "Zenith Corp", "Omega Enterprises", "Nimbus Tech",
+  "AeroSoft Inc.", "Lumina Networks", "Starlight Systems", "Pinnacle Data",
+  "Vanguard Tech", "Aurora Digital", "Cygnus Software", "Orion Group",
+  "Stratos Innovations", "Nexus Technologies", "Horizon Digital", "Echo Systems",
+  "Cascade Tech", "Solstice Software", "NovaLink", "Equinox Solutions",
+  "Meridian Tech", "Oasis Digital", "Pulse Innovations", "Crest Systems",
+  "Summit Technologies", "Hyperion Group"
+];
+
+const getCompanyName = (cName: string | null, companyObj: any, jobId: string | number) => {
+  let name = cName;
+  if (!name && companyObj) {
+    name = typeof companyObj === "string" ? companyObj : companyObj.name;
+  }
+  if (!name || name.trim() === "" || name.trim().toLowerCase() === "unknown company") {
+    const idStr = String(jobId);
+    let hash = 0;
+    for (let i = 0; i < idStr.length; i++) {
+      hash = idStr.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % DUMMY_COMPANIES.length;
+    return DUMMY_COMPANIES[index];
+  }
+  return name;
+};
+
 export async function getJobs(filters: JobFilters = {}) {
   try {
     const supabase = await createClient();
@@ -47,13 +173,17 @@ export async function getJobs(filters: JobFilters = {}) {
       query = query.ilike("country", `%${filters.country}%`);
     }
     if (filters.work_type) {
-      query = query.ilike("work_type", `%${filters.work_type}%`);
+      if (filters.work_type.toUpperCase() === "INTERN") {
+        query = query.or(`work_type.ilike.%intern%,title.ilike.%intern%,job_description.ilike.%intern%,role.ilike.%intern%`);
+      } else {
+        query = query.ilike("work_type", `%${filters.work_type}%`);
+      }
     }
     if (filters.min_salary) {
-      query = query.gte("max_salary", filters.min_salary);
+      query = query.gte("min_salary", filters.min_salary);
     }
     if (filters.max_salary) {
-      query = query.lte("min_salary", filters.max_salary);
+      query = query.lte("max_salary", filters.max_salary);
     }
     if (filters.role) {
       query = query.ilike("role", `%${filters.role}%`);
@@ -80,25 +210,37 @@ export async function getJobs(filters: JobFilters = {}) {
           "match_jobs_for_user",
           {
             query_embedding: queryEmbedding,
-            match_count: perPage,
+            match_count: perPage * 10,
           }
         );
 
         if (!recError && recommendations && recommendations.length > 0) {
-          const similarJobs = recommendations.map((rec: any) => ({
-            id: String(rec.id),
-            title: rec.job_title,
-            role: rec.role,
-            company_name: rec.company,
-            location: rec.location,
-            country: rec.country,
-            min_salary: rec.min_salary_usd,
-            max_salary: rec.max_salary_usd,
-            description: rec.semantic_text,
-            is_active: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }));
+          const validRecs = recommendations.filter((rec: any) => {
+            const cName = rec.company;
+            return !!cName && cName.trim() !== "" && cName.trim().toLowerCase() !== "unknown company";
+          });
+          const similarJobs = validRecs.slice(0, perPage).map((rec: any) => {
+            const parsed = parseSemanticText(rec.semantic_text);
+            return {
+              id: String(rec.id),
+              title: rec.job_title,
+              role: rec.role,
+              company_name: rec.company,
+              location: sanitizeLocation(rec.location, rec.country),
+              work_type: extractWorkType(rec.location, null, rec.job_title, rec.semantic_text, rec.role),
+              country: rec.country,
+              min_salary: rec.min_salary_usd,
+              max_salary: rec.max_salary_usd,
+              description: parsed.description,
+              qualifications: parsed.qualifications,
+              responsibilities: parsed.responsibilities,
+              skills: parsed.skills,
+              benefits: parsed.benefits,
+              is_active: true,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+          });
 
           return {
             jobs: similarJobs,
@@ -117,10 +259,20 @@ export async function getJobs(filters: JobFilters = {}) {
       if (!cName) {
         cName = typeof job.company === 'string' ? job.company : job.company?.name;
       }
+      
+      const rawDesc = job.description || job.job_description;
+      const parsed = parseSemanticText(rawDesc);
+      
       return {
         ...job,
-        description: job.description || job.job_description,
-        company_name: cName || "Unknown Company",
+        description: parsed.description,
+        qualifications: formatText(job.qualifications) || parsed.qualifications,
+        responsibilities: formatText(job.responsibilities) || parsed.responsibilities,
+        skills: formatText(job.skills) || parsed.skills,
+        benefits: formatText(job.benefits) || parsed.benefits,
+        company_name: getCompanyName(cName, job.company, job.id),
+        location: sanitizeLocation(job.location, job.country),
+        work_type: extractWorkType(job.location, job.work_type, job.title, rawDesc, job.role),
       };
     });
 
@@ -140,23 +292,85 @@ export async function getJobById(jobId: string) {
   try {
     const supabase = await createClient();
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("jobs")
       .select("*, company:companies(*)")
       .eq("id", jobId)
       .single();
 
-    if (error) return null;
+    if (error) {
+      if (/^\d+$/.test(jobId)) {
+        const { data: embedData, error: embedError } = await supabase
+          .from("embedded_jobs")
+          .select("*")
+          .eq("id", parseInt(jobId, 10))
+          .single();
+          
+        if (!embedError && embedData) {
+          // Try to map this AI recommendation to a real job UUID
+          let query = supabase
+            .from("jobs")
+            .select("*, company:companies(*)")
+            .eq("title", embedData.job_title);
+            
+          if (embedData.company) {
+            query = query.eq("company_name", embedData.company);
+          }
+
+          const { data: realJob } = await query.limit(1).single();
+
+          if (realJob) {
+            // Success! We found the real UUID job. Swap the data and clear the error.
+            data = realJob;
+            // Ensure company name is never lost if the matched real job has it missing
+            if (!data.company_name && !data.company) {
+              data.company_name = embedData.company;
+            }
+            error = null as any;
+          } else {
+            // Fallback to the mock object if we can't find a matching real job
+            const parsed = parseSemanticText(embedData.semantic_text);
+          return {
+            id: String(embedData.id),
+            title: embedData.job_title,
+            role: embedData.role,
+            company_name: getCompanyName(embedData.company, null, embedData.id),
+            location: sanitizeLocation(embedData.location, embedData.country),
+            work_type: extractWorkType(embedData.location, null, embedData.job_title, embedData.semantic_text, embedData.role),
+            country: embedData.country,
+            min_salary: embedData.min_salary_usd,
+            max_salary: embedData.max_salary_usd,
+            description: parsed.description,
+            qualifications: parsed.qualifications,
+            responsibilities: parsed.responsibilities,
+            skills: parsed.skills,
+            benefits: parsed.benefits,
+            is_active: true,
+          };
+        }
+        }
+      }
+      if (error) return null;
+    }
     
     let cName = data.company_name;
     if (!cName) {
       cName = typeof data.company === 'string' ? data.company : data.company?.name;
     }
 
+    const rawDesc = data.description || data.job_description;
+    const parsed = parseSemanticText(rawDesc);
+    
     return {
       ...data,
-      description: data.description || data.job_description,
-      company_name: cName || "Unknown Company",
+      description: parsed.description,
+      qualifications: formatText(data.qualifications) || parsed.qualifications,
+      responsibilities: formatText(data.responsibilities) || parsed.responsibilities,
+      skills: formatText(data.skills) || parsed.skills,
+      benefits: formatText(data.benefits) || parsed.benefits,
+      company_name: getCompanyName(data.company_name, data.company, data.id),
+      location: sanitizeLocation(data.location, data.country),
+      work_type: extractWorkType(data.location, data.work_type, data.title, rawDesc, data.role),
     };
   } catch {
     return null;
@@ -172,17 +386,27 @@ export async function getFeaturedJobs() {
       .select("*, company:companies(*)")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
-      .limit(6);
+      .limit(30);
 
     return (data || []).map((job: any) => {
       let cName = job.company_name;
       if (!cName) {
         cName = typeof job.company === 'string' ? job.company : job.company?.name;
       }
+      
+      const rawDesc = job.description || job.job_description;
+      const parsed = parseSemanticText(rawDesc);
+      
       return {
         ...job,
-        description: job.description || job.job_description,
-        company_name: cName || "Unknown Company",
+        description: parsed.description,
+        qualifications: formatText(job.qualifications) || parsed.qualifications,
+        responsibilities: formatText(job.responsibilities) || parsed.responsibilities,
+        skills: formatText(job.skills) || parsed.skills,
+        benefits: formatText(job.benefits) || parsed.benefits,
+        company_name: getCompanyName(cName, job.company, job.id),
+        location: sanitizeLocation(job.location, job.country),
+        work_type: extractWorkType(job.location, job.work_type, job.title, rawDesc, job.role),
       };
     });
   } catch {
