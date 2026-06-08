@@ -2,6 +2,8 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { SERVER_INSTANCE_ID } from "@/lib/server-session";
 
 export async function signIn(formData: FormData) {
   const email = formData.get("email") as string;
@@ -17,6 +19,9 @@ export async function signIn(formData: FormData) {
   if (error) {
     return { error: error.message };
   }
+
+  const cookieStore = await cookies();
+  cookieStore.set("server_instance_id", SERVER_INSTANCE_ID);
 
   redirect("/dashboard");
 }
@@ -55,6 +60,9 @@ export async function signUp(formData: FormData) {
     return { error: error.message };
   }
 
+  const cookieStore = await cookies();
+  cookieStore.set("server_instance_id", SERVER_INSTANCE_ID);
+
   // Profile is created automatically via the handle_new_user database trigger
 
   redirect("/dashboard");
@@ -63,7 +71,24 @@ export async function signUp(formData: FormData) {
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  
+  const cookieStore = await cookies();
+  cookieStore.delete("server_instance_id");
+  
   redirect("/login");
+}
+
+export async function verifyServerSession() {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get("server_instance_id")?.value;
+
+  if (sessionId && sessionId !== SERVER_INSTANCE_ID) {
+    // Session ID mismatch: NPM server was restarted
+    const supabase = await createClient();
+    await supabase.auth.signOut();
+    cookieStore.delete("server_instance_id");
+    redirect("/login");
+  }
 }
 
 export async function getUser() {
